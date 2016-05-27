@@ -102,12 +102,13 @@ LDBCommand* LDBCommand::InitFromCmdLineArgs(
     const std::vector<std::string>& args, const Options& options,
     const LDBOptions& ldb_options,
     const std::vector<ColumnFamilyDescriptor>* column_families,
-    const RocksDBLDBSelectFunc& selector) {
-  // --x=y command line arguments are added as x->y map entries.
-  std::map<std::string, std::string> option_map;
-
-  // Command-line arguments of the form --hex end up in this array as hex
-  std::vector<std::string> flags;
+    const std::function<LDBCommand*(const ParsedParams&)>& selector) {
+  ParsedParams parsed_params;
+  // --x=y command line arguments are added as x->y map entries in
+  // parsed_params.option_map.
+  //
+  // Command-line arguments of the form --hex end up in this array as hex to
+  // parsed_params.flags
 
   // Everything other than option_map and flags. Represents commands
   // and their parameters.  For eg: put key1 value1 go into this vector.
@@ -120,10 +121,10 @@ LDBCommand* LDBCommand::InitFromCmdLineArgs(
       std::vector<std::string> splits = StringSplit(arg, '=');
       if (splits.size() == 2) {
         std::string optionKey = splits[0].substr(OPTION_PREFIX.size());
-        option_map[optionKey] = splits[1];
+        parsed_params.option_map[optionKey] = splits[1];
       } else {
         std::string optionKey = splits[0].substr(OPTION_PREFIX.size());
-        flags.push_back(optionKey);
+        parsed_params.flags.push_back(optionKey);
       }
     } else {
       cmdTokens.push_back(arg);
@@ -135,9 +136,10 @@ LDBCommand* LDBCommand::InitFromCmdLineArgs(
     return nullptr;
   }
 
-  std::string cmd = cmdTokens[0];
-  std::vector<std::string> cmdParams(cmdTokens.begin() + 1, cmdTokens.end());
-  LDBCommand* command = selector(cmd, cmdParams, option_map, flags);
+  parsed_params.cmd = cmdTokens[0];
+  parsed_params.cmd_params.assign(cmdTokens.begin() + 1, cmdTokens.end());
+
+  LDBCommand* command = selector(parsed_params);
 
   if (command) {
     command->SetDBOptions(options);
@@ -146,50 +148,79 @@ LDBCommand* LDBCommand::InitFromCmdLineArgs(
   return command;
 }
 
-LDBCommand* LDBCommand::SelectCommand(
-    const std::string& cmd, const std::vector<std::string>& cmdParams,
-    const std::map<std::string, std::string>& option_map,
-    const std::vector<std::string>& flags) {
-  if (cmd == GetCommand::Name()) {
-    return new GetCommand(cmdParams, option_map, flags);
-  } else if (cmd == PutCommand::Name()) {
-    return new PutCommand(cmdParams, option_map, flags);
-  } else if (cmd == BatchPutCommand::Name()) {
-    return new BatchPutCommand(cmdParams, option_map, flags);
-  } else if (cmd == ScanCommand::Name()) {
-    return new ScanCommand(cmdParams, option_map, flags);
-  } else if (cmd == DeleteCommand::Name()) {
-    return new DeleteCommand(cmdParams, option_map, flags);
-  } else if (cmd == ApproxSizeCommand::Name()) {
-    return new ApproxSizeCommand(cmdParams, option_map, flags);
-  } else if (cmd == DBQuerierCommand::Name()) {
-    return new DBQuerierCommand(cmdParams, option_map, flags);
-  } else if (cmd == CompactorCommand::Name()) {
-    return new CompactorCommand(cmdParams, option_map, flags);
-  } else if (cmd == WALDumperCommand::Name()) {
-    return new WALDumperCommand(cmdParams, option_map, flags);
-  } else if (cmd == ReduceDBLevelsCommand::Name()) {
-    return new ReduceDBLevelsCommand(cmdParams, option_map, flags);
-  } else if (cmd == ChangeCompactionStyleCommand::Name()) {
-    return new ChangeCompactionStyleCommand(cmdParams, option_map, flags);
-  } else if (cmd == DBDumperCommand::Name()) {
-    return new DBDumperCommand(cmdParams, option_map, flags);
-  } else if (cmd == DBLoaderCommand::Name()) {
-    return new DBLoaderCommand(cmdParams, option_map, flags);
-  } else if (cmd == ManifestDumpCommand::Name()) {
-    return new ManifestDumpCommand(cmdParams, option_map, flags);
-  } else if (cmd == ListColumnFamiliesCommand::Name()) {
-    return new ListColumnFamiliesCommand(cmdParams, option_map, flags);
-  } else if (cmd == CreateColumnFamilyCommand::Name()) {
-    return new CreateColumnFamilyCommand(cmdParams, option_map, flags);
-  } else if (cmd == DBFileDumperCommand::Name()) {
-    return new DBFileDumperCommand(cmdParams, option_map, flags);
-  } else if (cmd == InternalDumpCommand::Name()) {
-    return new InternalDumpCommand(cmdParams, option_map, flags);
-  } else if (cmd == CheckConsistencyCommand::Name()) {
-    return new CheckConsistencyCommand(cmdParams, option_map, flags);
-  } else if (cmd == RepairCommand::Name()) {
-    return new RepairCommand(cmdParams, option_map, flags);
+LDBCommand* LDBCommand::SelectCommand(const ParsedParams& parased_params) {
+  if (parased_params.cmd == GetCommand::Name()) {
+    return new GetCommand(parased_params.cmd_params, parased_params.option_map,
+                          parased_params.flags);
+  } else if (parased_params.cmd == PutCommand::Name()) {
+    return new PutCommand(parased_params.cmd_params, parased_params.option_map,
+                          parased_params.flags);
+  } else if (parased_params.cmd == BatchPutCommand::Name()) {
+    return new BatchPutCommand(parased_params.cmd_params,
+                               parased_params.option_map, parased_params.flags);
+  } else if (parased_params.cmd == ScanCommand::Name()) {
+    return new ScanCommand(parased_params.cmd_params, parased_params.option_map,
+                           parased_params.flags);
+  } else if (parased_params.cmd == DeleteCommand::Name()) {
+    return new DeleteCommand(parased_params.cmd_params,
+                             parased_params.option_map, parased_params.flags);
+  } else if (parased_params.cmd == ApproxSizeCommand::Name()) {
+    return new ApproxSizeCommand(parased_params.cmd_params,
+                                 parased_params.option_map,
+                                 parased_params.flags);
+  } else if (parased_params.cmd == DBQuerierCommand::Name()) {
+    return new DBQuerierCommand(parased_params.cmd_params,
+                                parased_params.option_map,
+                                parased_params.flags);
+  } else if (parased_params.cmd == CompactorCommand::Name()) {
+    return new CompactorCommand(parased_params.cmd_params,
+                                parased_params.option_map,
+                                parased_params.flags);
+  } else if (parased_params.cmd == WALDumperCommand::Name()) {
+    return new WALDumperCommand(parased_params.cmd_params,
+                                parased_params.option_map,
+                                parased_params.flags);
+  } else if (parased_params.cmd == ReduceDBLevelsCommand::Name()) {
+    return new ReduceDBLevelsCommand(parased_params.cmd_params,
+                                     parased_params.option_map,
+                                     parased_params.flags);
+  } else if (parased_params.cmd == ChangeCompactionStyleCommand::Name()) {
+    return new ChangeCompactionStyleCommand(parased_params.cmd_params,
+                                            parased_params.option_map,
+                                            parased_params.flags);
+  } else if (parased_params.cmd == DBDumperCommand::Name()) {
+    return new DBDumperCommand(parased_params.cmd_params,
+                               parased_params.option_map, parased_params.flags);
+  } else if (parased_params.cmd == DBLoaderCommand::Name()) {
+    return new DBLoaderCommand(parased_params.cmd_params,
+                               parased_params.option_map, parased_params.flags);
+  } else if (parased_params.cmd == ManifestDumpCommand::Name()) {
+    return new ManifestDumpCommand(parased_params.cmd_params,
+                                   parased_params.option_map,
+                                   parased_params.flags);
+  } else if (parased_params.cmd == ListColumnFamiliesCommand::Name()) {
+    return new ListColumnFamiliesCommand(parased_params.cmd_params,
+                                         parased_params.option_map,
+                                         parased_params.flags);
+  } else if (parased_params.cmd == CreateColumnFamilyCommand::Name()) {
+    return new CreateColumnFamilyCommand(parased_params.cmd_params,
+                                         parased_params.option_map,
+                                         parased_params.flags);
+  } else if (parased_params.cmd == DBFileDumperCommand::Name()) {
+    return new DBFileDumperCommand(parased_params.cmd_params,
+                                   parased_params.option_map,
+                                   parased_params.flags);
+  } else if (parased_params.cmd == InternalDumpCommand::Name()) {
+    return new InternalDumpCommand(parased_params.cmd_params,
+                                   parased_params.option_map,
+                                   parased_params.flags);
+  } else if (parased_params.cmd == CheckConsistencyCommand::Name()) {
+    return new CheckConsistencyCommand(parased_params.cmd_params,
+                                       parased_params.option_map,
+                                       parased_params.flags);
+  } else if (parased_params.cmd == RepairCommand::Name()) {
+    return new RepairCommand(parased_params.cmd_params,
+                             parased_params.option_map, parased_params.flags);
   }
   return nullptr;
 }
