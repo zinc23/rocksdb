@@ -14,7 +14,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <function>
+#include <functional>
 
 #include "rocksdb/env.h"
 #include "rocksdb/iterator.h"
