@@ -34,9 +34,10 @@
 #include <thread>
 #include <unordered_map>
 
-#include "include/rocksdb/cache_tier.h"
+#include "rocksdb/cache_tier.h"
+#include "rocksdb/cache_env.h"
+
 #include "cache/blockcache.h"
-#include "cache/cache_env.h"
 #include "db/db_impl.h"
 #include "db/version_set.h"
 #include "hdfs/env_hdfs.h"

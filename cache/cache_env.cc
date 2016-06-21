@@ -1,8 +1,10 @@
-#pragma once
+#include "rocksdb/cache_env.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
+#include <atomic>
 
 #include "rocksdb/env.h"
 
@@ -379,66 +381,57 @@ class DirectIORandomAccessFile : public RandomAccessFile {
 //
 // Direct IO Env implementation for *nix operating system variants
 //
-class DirectIOEnv : public EnvWrapper {
-public:
-  explicit DirectIOEnv(Env* env, const bool direct_read = true,
-                       const bool direct_writes = true)
-    : EnvWrapper(env), direct_read_(direct_read),
-      direct_writes_(direct_writes) {}
+DirectIOEnv::DirectIOEnv(Env* env, const bool direct_read,
+                         const bool direct_writes)
+  : EnvWrapper(env), direct_read_(direct_read),
+    direct_writes_(direct_writes) {}
 
-  virtual ~DirectIOEnv() {}
-
-  virtual Status NewSequentialFile(const std::string& fname,
-                                   unique_ptr<SequentialFile>* result,
-                                   const EnvOptions& options) {
-    if (direct_read_) {
-      std::unique_ptr<DirectIOSequentialFile> file(
-        new DirectIOSequentialFile(fname));
-      Status s = file->Open();
-      if (s.ok()) {
-        *result = std::move(file);
-      }
-      return s;
-    } else {
-      return target()->NewSequentialFile(fname, result, options);
-    }
-  }
-
-  virtual Status NewRandomAccessFile(const std::string& fname,
-                                     unique_ptr<RandomAccessFile>* result,
+Status DirectIOEnv::NewSequentialFile(const std::string& fname,
+                                     unique_ptr<SequentialFile>* result,
                                      const EnvOptions& options) {
-    if (direct_read_) {
-      std::unique_ptr<DirectIORandomAccessFile> file(
-        new DirectIORandomAccessFile(fname));
-      Status s = file->Open();
-      if (s.ok()) {
-        *result = std::move(file);
-      }
-      return s;
-    } else {
-      return target()->NewRandomAccessFile(fname, result, options);
+  if (direct_read_) {
+    std::unique_ptr<DirectIOSequentialFile> file(
+      new DirectIOSequentialFile(fname));
+    Status s = file->Open();
+    if (s.ok()) {
+      *result = std::move(file);
     }
+    return s;
+  } else {
+    return target()->NewSequentialFile(fname, result, options);
   }
+}
 
-  virtual Status NewWritableFile(const std::string& fname,
-                                 unique_ptr<WritableFile>* result,
-                                 const EnvOptions& options) {
-    if (direct_writes_) {
-      std::unique_ptr<DirectIOWritableFile> file(
-        new DirectIOWritableFile(fname));
-      Status s = file->Open();
-      if (s.ok()) {
-        *result = std::move(file);
-      }
-      return s;
-    } else {
-      return target()->NewWritableFile(fname, result, options);
+Status DirectIOEnv::NewRandomAccessFile(const std::string& fname,
+                           unique_ptr<RandomAccessFile>* result,
+                           const EnvOptions& options) {
+  if (direct_read_) {
+    std::unique_ptr<DirectIORandomAccessFile> file(
+      new DirectIORandomAccessFile(fname));
+    Status s = file->Open();
+    if (s.ok()) {
+      *result = std::move(file);
     }
+    return s;
+  } else {
+    return target()->NewRandomAccessFile(fname, result, options);
   }
+}
 
-private:
-  const bool direct_read_ = true;
-  const bool direct_writes_ = true;
-};
+Status DirectIOEnv::NewWritableFile(const std::string& fname,
+                       unique_ptr<WritableFile>* result,
+                       const EnvOptions& options) {
+  if (direct_writes_) {
+    std::unique_ptr<DirectIOWritableFile> file(
+      new DirectIOWritableFile(fname));
+    Status s = file->Open();
+    if (s.ok()) {
+      *result = std::move(file);
+    }
+    return s;
+  } else {
+    return target()->NewWritableFile(fname, result, options);
+  }
+}
 
 }

@@ -6,11 +6,11 @@
 #include <memory>
 
 #include "rocksdb/env.h"
+#include "rocksdb/cache_env.h"
 
 #include "cache/cache_util.h"
 #include "cache/blockcache.h"
 #include "cache/cache_volatile.h"
-#include "cache/cache_env.h"
 
 #include "table/block_builder.h"
 #include "port/port_posix.h"

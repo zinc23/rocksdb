@@ -4,9 +4,9 @@
 #include <list>
 #include <limits>
 
-#include "include/rocksdb/env.h"
-#include "include/rocksdb/status.h"
-#include "include/rocksdb/page_cache.h"
+#include "rocksdb/env.h"
+#include "rocksdb/status.h"
+#include "rocksdb/page_cache.h"
 
 namespace rocksdb {
 

@@ -116,6 +116,7 @@ LIB_SOURCES =                                                   \
   cache/blockcache_metadata.cc                                  \
   cache/cache_volatile.cc                                       \
   cache/cache_tier.cc                                           \
+  cache/cache_env.cc                                            \
   utilities/backupable/backupable_db.cc                         \
   utilities/convenience/info_log_finder.cc                      \
   utilities/checkpoint/checkpoint.cc                            \
